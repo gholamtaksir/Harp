@@ -8,7 +8,7 @@ info:
   description: "Cloudflare WARP client with proxy, TUN and routing"
   copyright: "Copyright (c) Harp contributors. Licensed under GPL-3.0-or-later."
   comments: "https://github.com/gholamtaksir/Harp"
-  version: "0.0.1"
+  version: "0.0.2"
 
 dev_mode:
   root_path: .

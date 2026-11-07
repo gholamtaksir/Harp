@@ -1,14 +1,12 @@
 name: Release
 
 # Pushing a tag such as v0.0.1 builds everything and publishes a GitHub
-# release. Pushing a release/* branch or running the workflow by hand builds
-# everything without publishing; the files are attached to the run.
+# release. Running the workflow by hand builds everything without publishing;
+# the files are attached to the run.
 on:
   push:
     tags:
       - "v*"
-    branches:
-      - "release/**"
   workflow_dispatch:
 
 permissions:

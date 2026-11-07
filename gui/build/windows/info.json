@@ -1,12 +1,12 @@
 {
 	"fixed": {
-		"file_version": "0.0.1",
-		"product_version": "0.0.1"
+		"file_version": "0.0.2",
+		"product_version": "0.0.2"
 	},
 	"info": {
 		"0409": {
-			"FileVersion": "0.0.1",
-			"ProductVersion": "0.0.1",
+			"FileVersion": "0.0.2",
+			"ProductVersion": "0.0.2",
 			"CompanyName": "Harp",
 			"FileDescription": "Cloudflare WARP client with proxy, TUN and routing",
 			"LegalCopyright": "Copyright (c) Harp contributors. Licensed under GPL-3.0-or-later.",
