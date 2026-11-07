@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ViRb3/wgcf/v2/openapi"
+	"github.com/gholamtaksir/Harp/openapi"
 )
 
 func TestLatestAPIIdentityAndRegistrationPayload(t *testing.T) {

@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ViRb3/wgcf/v2/cloudflare"
-	. "github.com/ViRb3/wgcf/v2/cmd/shared"
-	"github.com/ViRb3/wgcf/v2/config"
-	"github.com/ViRb3/wgcf/v2/util"
-	"github.com/ViRb3/wgcf/v2/wireguard"
 	"github.com/cockroachdb/errors"
+	"github.com/gholamtaksir/Harp/cloudflare"
+	. "github.com/gholamtaksir/Harp/cmd/shared"
+	"github.com/gholamtaksir/Harp/config"
+	"github.com/gholamtaksir/Harp/util"
+	"github.com/gholamtaksir/Harp/warp"
+	"github.com/gholamtaksir/Harp/wireguard"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -47,7 +48,7 @@ func registerAccount() error {
 
 	if existingKey != "" {
 		if util.IsWarpLicenseKey(existingKey) {
-			return NewUserError("--key looks like a WARP license key; use it with `wgcf update --license-key`")
+			return NewUserError("--key looks like a WARP license key; use it with `harp update --license-key`")
 		}
 		privateKey, err = wireguard.NewKey(existingKey)
 		if err != nil {
@@ -75,6 +76,13 @@ func registerAccount() error {
 	viper.Set(config.LicenseKey, device.Account.GetLicense())
 	if err := viper.WriteConfig(); err != nil {
 		return errors.WithStack(err)
+	}
+	// Cache the peer configuration so proxy/TUN modes work offline. A
+	// missing config is not fatal: it is fetched again on first use.
+	if profile, err := warp.FromConfig(privateKey.String(), device.Config); err == nil {
+		if err := warp.Save(profile); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
 	ctx := CreateContext()

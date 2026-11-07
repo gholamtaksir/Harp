@@ -3,7 +3,9 @@
 /*.toml
 /*.conf
 /*.pcapng
+/*.db
 /wgcf
+/harp
 .DS_Store
 
 # Created by https://www.gitignore.io/api/go,intellij+all,visualstudiocode

@@ -1,9 +1,20 @@
-before:
+version: 2
+
+project_name: harp
+
 builds:
-  - env:
+  - binary: harp
+    env:
       - CGO_ENABLED=0
+    # Keep in sync with TAGS in the Makefile.
+    tags:
+      - with_gvisor
+      - with_quic
+      - with_wireguard
+      - with_utls
+      - with_clash_api
     ldflags:
-      - -s -w
+      - -s -w -buildid= -X github.com/gholamtaksir/Harp/cmd.Version={{ .Version }}
     flags:
       - -trimpath
     goos:
@@ -12,7 +23,7 @@ builds:
       - darwin
       - freebsd
     goarch:
-      - 386
+      - "386"
       - amd64
       - arm
       - arm64
@@ -20,14 +31,32 @@ builds:
       - mipsle
       - mips64
       - mips64le
-      - s390x
+      - riscv64
     goarm:
-      - 5
-      - 6
-      - 7
+      - "6"
+      - "7"
     gomips:
       - softfloat
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: riscv64
+
 archives:
-  - format: binary
+  - formats: [binary]
+    name_template: >-
+      harp_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}
+
 checksum:
-  name_template: "checksums.txt"
+  name_template: "harp_{{ .Version }}_checksums.txt"
+
+changelog:
+  # The history before Harp belongs to wgcf; release notes are written by hand.
+  disable: true
+
+release:
+  name_template: "Harp {{ .Version }}"
+  mode: keep-existing

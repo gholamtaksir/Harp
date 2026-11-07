@@ -1,9 +1,9 @@
 package status
 
 import (
-	"github.com/ViRb3/wgcf/v2/cloudflare"
-	. "github.com/ViRb3/wgcf/v2/cmd/shared"
 	"github.com/cockroachdb/errors"
+	"github.com/gholamtaksir/Harp/cloudflare"
+	. "github.com/gholamtaksir/Harp/cmd/shared"
 	"github.com/spf13/cobra"
 )
 

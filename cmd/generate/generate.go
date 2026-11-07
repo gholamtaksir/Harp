@@ -3,13 +3,11 @@ package generate
 import (
 	"log"
 
-	"github.com/ViRb3/wgcf/v2/cloudflare"
-	. "github.com/ViRb3/wgcf/v2/cmd/shared"
-	"github.com/ViRb3/wgcf/v2/config"
-	"github.com/ViRb3/wgcf/v2/wireguard"
 	"github.com/cockroachdb/errors"
+	. "github.com/gholamtaksir/Harp/cmd/shared"
+	"github.com/gholamtaksir/Harp/warp"
+	"github.com/gholamtaksir/Harp/wireguard"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var profileFile string
@@ -28,7 +26,7 @@ var Cmd = &cobra.Command{
 }
 
 func init() {
-	Cmd.PersistentFlags().StringVarP(&profileFile, "profile", "p", "wgcf-profile.conf", "WireGuard profile file")
+	Cmd.PersistentFlags().StringVarP(&profileFile, "profile", "p", "harp-profile.conf", "WireGuard profile file")
 	Cmd.PersistentFlags().IntVarP(&keepalive, "keepalive", "k", 0, "Persistent keepalive interval in seconds (default 25)")
 	Cmd.PersistentFlags().Lookup("keepalive").NoOptDefVal = "25"
 }
@@ -42,27 +40,19 @@ func generateProfile() error {
 		return errors.WithStack(err)
 	}
 
-	ctx := CreateContext()
-	thisDevice, err := cloudflare.GetSourceDevice(ctx)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	if thisDevice.Config == nil || len(thisDevice.Config.Peers) == 0 {
-		return errors.New("Cloudflare response did not contain a WireGuard peer")
-	}
-	peer := thisDevice.Config.Peers[0]
-	endpoint, err := cloudflare.WireGuardEndpoint(peer.Endpoint)
+	// Always fetch fresh peer data; this also refreshes the cache used by
+	// the proxy and TUN modes.
+	warpProfile, err := warp.Load(CreateContext(), true)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
 	profile, err := wireguard.NewProfile(&wireguard.ProfileData{
-		PrivateKey: viper.GetString(config.PrivateKey),
-		Address1:   thisDevice.Config.Interface.Addresses.V4,
-		Address2:   thisDevice.Config.Interface.Addresses.V6,
-		PublicKey:  peer.PublicKey,
-		Endpoint:   endpoint,
+		PrivateKey: warpProfile.PrivateKey,
+		Address1:   warpProfile.IPv4,
+		Address2:   warpProfile.IPv6,
+		PublicKey:  warpProfile.PeerPublicKey,
+		Endpoint:   warpProfile.Endpoint,
 		Keepalive:  keepalive,
 	})
 	if err != nil {

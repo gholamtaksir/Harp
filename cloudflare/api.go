@@ -10,13 +10,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/ViRb3/wgcf/v2/config"
-	"github.com/ViRb3/wgcf/v2/openapi"
-	"github.com/ViRb3/wgcf/v2/util"
-	"github.com/ViRb3/wgcf/v2/wireguard"
 	"github.com/cockroachdb/errors"
+	"github.com/gholamtaksir/Harp/config"
+	"github.com/gholamtaksir/Harp/openapi"
+	"github.com/gholamtaksir/Harp/util"
+	"github.com/gholamtaksir/Harp/wireguard"
 	utls "github.com/refraction-networking/utls"
 )
 
@@ -197,6 +198,8 @@ func warpClientHelloSpec() *utls.ClientHelloSpec {
 
 var apiClient = MakeApiClient(nil)
 var apiClientAuth *openapi.APIClient
+var apiClientAuthToken string
+var apiClientAuthMutex sync.Mutex
 
 func MakeApiClient(authToken *string) *openapi.APIClient {
 	httpClient := http.Client{Transport: cloudflareResponseTransport{base: DefaultTransport}}
@@ -282,8 +285,13 @@ func GetSourceDevice(ctx *config.Context) (*SourceDevice, error) {
 }
 
 func globalClientAuth(authToken string) *openapi.APIClient {
-	if apiClientAuth == nil {
+	apiClientAuthMutex.Lock()
+	defer apiClientAuthMutex.Unlock()
+	// Recreate the client when the account changes, which happens in the
+	// desktop app when an account is removed and a new one registered.
+	if apiClientAuth == nil || apiClientAuthToken != authToken {
 		apiClientAuth = MakeApiClient(&authToken)
+		apiClientAuthToken = authToken
 	}
 	return apiClientAuth
 }

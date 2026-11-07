@@ -1,11 +1,11 @@
-//go:generate openapi-generator generate -i openapi-spec.yml -g go -o openapi --git-host github.com --git-user-id ViRb3 --git-repo-id wgcf/v2/openapi --additional-properties=disallowAdditionalPropertiesIfNotPresent=false
+//go:generate openapi-generator generate -i openapi-spec.yml -g go -o openapi --git-host github.com --git-user-id gholamtaksir --git-repo-id Harp/openapi --additional-properties=disallowAdditionalPropertiesIfNotPresent=false
 
 package main
 
 import (
 	"log"
 
-	"github.com/ViRb3/wgcf/v2/cmd"
+	"github.com/gholamtaksir/Harp/cmd"
 )
 
 func main() {

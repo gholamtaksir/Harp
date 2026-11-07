@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Harp
+Comment=Cloudflare WARP client with proxy, TUN and routing
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/harp-gui %u
+Terminal=false
+Type=Application
+Icon=harp-gui
+Categories=Utility;
+StartupWMClass=harp-gui
+
+ 

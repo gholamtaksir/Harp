@@ -7,10 +7,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ViRb3/wgcf/v2/cloudflare"
-	"github.com/ViRb3/wgcf/v2/config"
-	"github.com/ViRb3/wgcf/v2/util"
 	"github.com/dustin/go-humanize"
+	"github.com/gholamtaksir/Harp/cloudflare"
+	"github.com/gholamtaksir/Harp/config"
+	"github.com/gholamtaksir/Harp/util"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/viper"

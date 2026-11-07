@@ -1,0 +1,38 @@
+# Wails build configuration for the Harp desktop app.
+version: '3'
+
+info:
+  companyName: "Harp"
+  productName: "Harp"
+  productIdentifier: "io.github.gholamtaksir.harp"
+  description: "Cloudflare WARP client with proxy, TUN and routing"
+  copyright: "Copyright (c) Harp contributors. Licensed under GPL-3.0-or-later."
+  comments: "https://github.com/gholamtaksir/Harp"
+  version: "0.0.1"
+
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - frontend
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+    git_ignore: true
+  executes:
+    - cmd: wails3 build DEV=true
+      type: blocking
+    - cmd: wails3 task common:dev:frontend
+      type: background
+    - cmd: wails3 task run
+      type: primary
+      exit_policy: shutdown

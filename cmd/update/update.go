@@ -4,11 +4,11 @@ import (
 	"log"
 	"slices"
 
-	"github.com/ViRb3/wgcf/v2/cloudflare"
-	. "github.com/ViRb3/wgcf/v2/cmd/shared"
-	"github.com/ViRb3/wgcf/v2/config"
-	"github.com/ViRb3/wgcf/v2/wireguard"
 	"github.com/cockroachdb/errors"
+	"github.com/gholamtaksir/Harp/cloudflare"
+	. "github.com/gholamtaksir/Harp/cmd/shared"
+	"github.com/gholamtaksir/Harp/config"
+	"github.com/gholamtaksir/Harp/wireguard"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -48,7 +48,7 @@ func updateAccount() error {
 	ctx := CreateContext()
 	if licenseKey != "" {
 		if wireguard.IsKey(licenseKey) {
-			return NewUserError("--license-key looks like a WireGuard private key; use it with `wgcf register --key`")
+			return NewUserError("--license-key looks like a WireGuard private key; use it with `harp register --key`")
 		}
 		ctx.LicenseKey = licenseKey
 	}

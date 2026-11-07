@@ -1,116 +1,204 @@
 name: Release
 
+# Pushing a tag such as v0.0.1 builds everything and publishes a GitHub
+# release. Pushing a release/* branch or running the workflow by hand builds
+# everything without publishing; the files are attached to the run.
 on:
-  workflow_run:
-    workflows:
-      - Test
-    types:
-      - completed
+  push:
+    tags:
+      - "v*"
     branches:
-      - master
+      - "release/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-master
-  cancel-in-progress: false
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TAGS: with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api
+  WAILS_VERSION: v3.1.0
 
 jobs:
-  release-please:
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'master'
+  test:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-
     steps:
-      - name: Create release
-        id: release
-        uses: googleapis/release-please-action@v5.0.0
-        with:
-          release-type: go
-          target-branch: master
-          include-component-in-tag: false
-
-  docker:
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout release
+      - name: Checkout
         uses: actions/checkout@v7.0.1
-        with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
-
-      - name: Docker meta
-        id: docker_meta
-        uses: docker/metadata-action@v6.2.0
-        with:
-          images: ${{ github.repository }}
-          tags: |
-            type=semver,pattern={{major}},value=${{ needs.release-please.outputs.tag_name }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.tag_name }}
-            type=semver,pattern={{major}}.{{minor}}.{{patch}},value=${{ needs.release-please.outputs.tag_name }}
-            type=semver,pattern={{version}},value=${{ needs.release-please.outputs.tag_name }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4.2.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4.4.1
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v4.6.0
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v7.3.0
-        with:
-          push: true
-          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          labels: ${{ steps.docker_meta.outputs.labels }}
-
-  binaries:
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout release
-        uses: actions/checkout@v7.0.1
-        with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
-          fetch-depth: 0
 
       - name: Fetch Go version
         run: |
-          GO_VERSION=$(perl -ne 'print "$1\n" if /FROM golang:([0-9.]+)/' Dockerfile | head -n1)
-          [ -n "$GO_VERSION" ] || exit 1
-          echo "go_version=$GO_VERSION" >> "$GITHUB_ENV"
+          echo "go_version=$(grep -oE 'golang:[0-9.]+' Dockerfile | head -n1 | cut -d: -f2)" >> "$GITHUB_ENV"
 
       - name: Setup Go environment
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "${{ env.go_version }}"
+          go-version: ${{ env.go_version }}
 
-      - name: Binaries release
+      - name: Test
+        run: make test
+
+  cli:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Fetch Go version
+        run: |
+          echo "go_version=$(grep -oE 'golang:[0-9.]+' Dockerfile | head -n1 | cut -d: -f2)" >> "$GITHUB_ENV"
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.go_version }}
+
+      - name: Build command line binaries
         uses: goreleaser/goreleaser-action@v7.2.3
         with:
-          version: ~> 2.15.4
-          args: release --clean
+          version: "~> v2"
+          args: release --clean --skip=publish ${{ startsWith(github.ref, 'refs/tags/v') && ' ' || '--snapshot' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+
+      - name: Collect binaries
+        run: |
+          mkdir out
+          find dist -maxdepth 1 -type f -name 'harp_*' ! -name '*checksums*' -exec cp {} out/ \;
+          ls -la out
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli
+          path: out/*
+          if-no-files-found: error
+
+  gui:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+          - os: ubuntu-24.04
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Fetch versions
+        run: |
+          echo "go_version=$(grep -oE 'golang:[0-9.]+' Dockerfile | head -n1 | cut -d: -f2)" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev.${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.go_version }}
+          cache-dependency-path: |
+            go.sum
+            gui/go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gui/frontend/package-lock.json
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
+
+      - name: Build (Windows)
+        if: matrix.platform == 'windows'
+        working-directory: gui
+        run: |
+          wails3 build EXTRA_TAGS="$TAGS" VERSION="$VERSION"
+          mkdir -p ../out
+          pwsh -NoProfile -Command "Compress-Archive -Path bin/harp-gui.exe -DestinationPath ../out/Harp-${VERSION}-windows-amd64.zip"
+
+      - name: Build (macOS)
+        if: matrix.platform == 'macos'
+        working-directory: gui
+        run: |
+          wails3 build EXTRA_TAGS="$TAGS" VERSION="$VERSION" ARCH=amd64 OUTPUT=bin/harp-gui-amd64
+          wails3 build EXTRA_TAGS="$TAGS" VERSION="$VERSION" ARCH=arm64 OUTPUT=bin/harp-gui-arm64
+          lipo -create -output bin/harp-gui bin/harp-gui-amd64 bin/harp-gui-arm64
+          rm bin/harp-gui-amd64 bin/harp-gui-arm64
+          wails3 task darwin:create:app:bundle
+          mv bin/harp-gui.app bin/Harp.app
+          mkdir -p ../out
+          ditto -c -k --keepParent bin/Harp.app "../out/Harp-${VERSION}-macos-universal.zip"
+
+      - name: Build (Linux)
+        if: matrix.platform == 'linux'
+        working-directory: gui
+        run: |
+          wails3 build EXTRA_TAGS="$TAGS" VERSION="$VERSION"
+          wails3 task linux:generate:dotdesktop
+          sed -i "s/^version: .*/version: \"${VERSION}\"/" build/linux/nfpm/nfpm.yaml
+          GOARCH=amd64 wails3 task linux:generate:deb
+          mkdir -p ../out
+          tar -czf "../out/Harp-${VERSION}-linux-amd64.tar.gz" -C bin harp-gui
+          cp bin/*.deb "../out/Harp-${VERSION}-linux-amd64.deb"
+
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-${{ matrix.platform }}
+          path: out/*
+          if-no-files-found: error
+
+  publish:
+    needs: [cli, gui]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Download files
+        uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd assets
+          sha256sum * > SHA256SUMS.txt
+          ls -la
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Harp ${{ github.ref_name }}
+          body_path: .github/release-notes.md
+          files: assets/*
+          make_latest: true

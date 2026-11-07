@@ -3,14 +3,14 @@ FROM golang:1.27.0-alpine AS builder
 WORKDIR /src
 COPY . .
 
-RUN apk add --no-cache git && \
+RUN apk add --no-cache git make && \
     go mod download && \
-    CGO_ENABLED=0 go build -ldflags="-s -w" -o "wgcf"
+    make build OUTPUT=harp
 
 FROM alpine:3.24.2
 
-WORKDIR /
+WORKDIR /data
 
-COPY --from=builder "/src/wgcf" "/"
+COPY --from=builder "/src/harp" "/usr/local/bin/harp"
 
-ENTRYPOINT ["/wgcf"]
+ENTRYPOINT ["harp"]

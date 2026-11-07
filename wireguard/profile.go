@@ -58,3 +58,8 @@ func generateProfile(data *ProfileData) (string, error) {
 func (p *Profile) Save(profileFile string) error {
 	return ioutil.WriteFile(profileFile, []byte(p.profileString), 0600)
 }
+
+// String returns the rendered profile.
+func (p *Profile) String() string {
+	return p.profileString
+}
