@@ -143,9 +143,15 @@ jobs:
         if: matrix.platform == 'macos'
         working-directory: gui
         run: |
-          wails3 build EXTRA_TAGS="$TAGS" VERSION="$VERSION" ARCH=amd64 OUTPUT=bin/harp-gui-amd64
-          wails3 build EXTRA_TAGS="$TAGS" VERSION="$VERSION" ARCH=arm64 OUTPUT=bin/harp-gui-arm64
+          # Native arm64 build; this also prepares the frontend, bindings and icons.
+          wails3 build EXTRA_TAGS="$TAGS" VERSION="$VERSION"
+          mv bin/harp-gui bin/harp-gui-arm64
+          # Intel build with the same flags. Task does not pass ARCH from the
+          # command line through to GOARCH, so go build is called directly.
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 CGO_CFLAGS="-mmacosx-version-min=12.0" CGO_LDFLAGS="-mmacosx-version-min=12.0" MACOSX_DEPLOYMENT_TARGET=12.0 go build -tags "production,$TAGS" -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=$VERSION" -o bin/harp-gui-amd64 .
           lipo -create -output bin/harp-gui bin/harp-gui-amd64 bin/harp-gui-arm64
+          lipo -archs bin/harp-gui | grep -q x86_64
+          lipo -archs bin/harp-gui | grep -q arm64
           rm bin/harp-gui-amd64 bin/harp-gui-arm64
           wails3 task darwin:create:app:bundle
           mv bin/harp-gui.app bin/Harp.app
